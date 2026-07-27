@@ -14,12 +14,12 @@ local ok = pcall(function() return game:GetService("CoreGui").Name end)
 local UIContainer = ok and game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "TVOS_Full"
+ScreenGui.Name = "TVOS_Stealth"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = UIContainer
 
 local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 220, 0, 190)
+Main.Size = UDim2.new(0, 230, 0, 190)
 Main.Position = UDim2.new(0.05, 0, 0.2, 0)
 Main.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
 Main.BorderSizePixel = 0
@@ -47,7 +47,7 @@ local function CreateBtn(text, pos, bg, textCol)
 end
 
 local ESPBtn = CreateBtn("ESP: OFF", UDim2.new(0.05, 0, 0.08, 0))
-local InvisBtn = CreateBtn("FE INVIS: OFF", UDim2.new(0.05, 0, 0.28, 0))
+local InvisBtn = CreateBtn("GHOST INVIS: OFF", UDim2.new(0.05, 0, 0.28, 0))
 local NoclipBtn = CreateBtn("NOCLIP: OFF", UDim2.new(0.05, 0, 0.48, 0))
 local UnloadBtn = CreateBtn("UNLOAD", UDim2.new(0.05, 0, 0.72, 0), Color3.fromRGB(150, 30, 40), Color3.fromRGB(255, 255, 255))
 
@@ -58,11 +58,32 @@ ESPBtn.MouseButton1Click:Connect(function()
     ESPBtn.TextColor3 = ESPEnabled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(180, 180, 200)
 end)
 
+-- Полный FE-Инвиз через подмену серверных координат костей
+local CloneChar
 InvisBtn.MouseButton1Click:Connect(function()
     InvisEnabled = not InvisEnabled
-    InvisBtn.Text = InvisEnabled and "FE INVIS: ON" or "FE INVIS: OFF"
+    InvisBtn.Text = InvisEnabled and "GHOST INVIS: ON" or "GHOST INVIS: OFF"
     InvisBtn.BackgroundColor3 = InvisEnabled and Color3.fromRGB(130, 40, 200) or Color3.fromRGB(28, 28, 38)
     InvisBtn.TextColor3 = InvisEnabled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(180, 180, 200)
+
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local lowerTorso = char:FindFirstChild("LowerTorso") or char:FindFirstChild("Torso")
+    
+    if InvisEnabled then
+        if hrp and lowerTorso then
+            local rootJoint = lowerTorso:FindFirstChild("RootJoint") or hrp:FindFirstChild("RootJoint")
+            if rootJoint then
+                rootJoint.Parent = nil
+            end
+        end
+    else
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.Health = 0
+        end
+    end
 end)
 
 NoclipBtn.MouseButton1Click:Connect(function()
@@ -82,7 +103,7 @@ UnloadBtn.MouseButton1Click:Connect(function()
     for _, c in pairs(Connections) do c:Disconnect() end
 end)
 
--- ESP Loop
+-- ESP
 table.insert(Connections, RunService.RenderStepped:Connect(function()
     if not Active then return end
     for _, plr in ipairs(Players:GetPlayers()) do
@@ -109,35 +130,6 @@ table.insert(Connections, RunService.RenderStepped:Connect(function()
     end
 end))
 
--- FE Invis (Desync CFrame) + Hide Overhead Text
-table.insert(Connections, RunService.PostSimulation:Connect(function()
-    if not Active then return end
-    local myChar = LocalPlayer.Character
-    if not myChar then return end
-
-    local hum = myChar:FindFirstChild("Humanoid")
-    local hrp = myChar:FindFirstChild("HumanoidRootPart")
-
-    if hum then
-        hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-    end
-
-    if myChar:FindFirstChild("Head") then
-        for _, v in ipairs(myChar.Head:GetChildren()) do
-            if v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
-                v:Destroy()
-            end
-        end
-    end
-
-    if InvisEnabled and hrp then
-        local realCF = hrp.CFrame
-        hrp.CFrame = realCF * CFrame.new(0, -9999, 0)
-        RunService.PreRender:Wait()
-        hrp.CFrame = realCF
-    end
-end))
-
 -- Noclip Loop
 table.insert(Connections, RunService.Stepped:Connect(function()
     if not Active or not NoclipEnabled then return end
@@ -151,7 +143,7 @@ table.insert(Connections, RunService.Stepped:Connect(function()
     end
 end))
 
--- TP по нажатию X / Ч к ближайшему игроку
+-- TP за спину на X / Ч
 table.insert(Connections, UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.X then

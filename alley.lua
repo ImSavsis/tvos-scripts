@@ -1,10 +1,12 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local Active = true
 local ESPEnabled = false
 local InvisEnabled = false
+local NoclipEnabled = false
 local Connections = {}
 local Highlights = {}
 
@@ -12,12 +14,12 @@ local ok = pcall(function() return game:GetService("CoreGui").Name end)
 local UIContainer = ok and game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "TVOS_Lite"
+ScreenGui.Name = "TVOS_Full"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = UIContainer
 
 local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 200, 0, 150)
+Main.Size = UDim2.new(0, 220, 0, 190)
 Main.Position = UDim2.new(0.05, 0, 0.2, 0)
 Main.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
 Main.BorderSizePixel = 0
@@ -32,21 +34,22 @@ MainStroke.Color = Color3.fromRGB(40, 40, 55)
 
 local function CreateBtn(text, pos, bg, textCol)
     local btn = Instance.new("TextButton", Main)
-    btn.Size = UDim2.new(0.9, 0, 0, 32)
+    btn.Size = UDim2.new(0.9, 0, 0, 30)
     btn.Position = pos
     btn.Text = text
     btn.TextColor3 = textCol or Color3.fromRGB(180, 180, 200)
     btn.BackgroundColor3 = bg or Color3.fromRGB(28, 28, 38)
     btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 12
+    btn.TextSize = 11
     local corner = Instance.new("UICorner", btn)
     corner.CornerRadius = UDim.new(0, 6)
     return btn
 end
 
-local ESPBtn = CreateBtn("ESP: OFF", UDim2.new(0.05, 0, 0.1, 0))
-local InvisBtn = CreateBtn("INVIS: OFF", UDim2.new(0.05, 0, 0.38, 0))
-local UnloadBtn = CreateBtn("UNLOAD", UDim2.new(0.05, 0, 0.66, 0), Color3.fromRGB(150, 30, 40), Color3.fromRGB(255, 255, 255))
+local ESPBtn = CreateBtn("ESP: OFF", UDim2.new(0.05, 0, 0.08, 0))
+local InvisBtn = CreateBtn("FE INVIS: OFF", UDim2.new(0.05, 0, 0.28, 0))
+local NoclipBtn = CreateBtn("NOCLIP: OFF", UDim2.new(0.05, 0, 0.48, 0))
+local UnloadBtn = CreateBtn("UNLOAD", UDim2.new(0.05, 0, 0.72, 0), Color3.fromRGB(150, 30, 40), Color3.fromRGB(255, 255, 255))
 
 ESPBtn.MouseButton1Click:Connect(function()
     ESPEnabled = not ESPEnabled
@@ -57,20 +60,16 @@ end)
 
 InvisBtn.MouseButton1Click:Connect(function()
     InvisEnabled = not InvisEnabled
-    InvisBtn.Text = InvisEnabled and "INVIS: ON" or "INVIS: OFF"
+    InvisBtn.Text = InvisEnabled and "FE INVIS: ON" or "FE INVIS: OFF"
     InvisBtn.BackgroundColor3 = InvisEnabled and Color3.fromRGB(130, 40, 200) or Color3.fromRGB(28, 28, 38)
     InvisBtn.TextColor3 = InvisEnabled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(180, 180, 200)
+end)
 
-    local myChar = LocalPlayer.Character
-    if myChar and not InvisEnabled then
-        for _, v in ipairs(myChar:GetDescendants()) do
-            if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" then
-                v.Transparency = 0
-            elseif v:IsA("Decal") then
-                v.Transparency = 0
-            end
-        end
-    end
+NoclipBtn.MouseButton1Click:Connect(function()
+    NoclipEnabled = not NoclipEnabled
+    NoclipBtn.Text = NoclipEnabled and "NOCLIP: ON" or "NOCLIP: OFF"
+    NoclipBtn.BackgroundColor3 = NoclipEnabled and Color3.fromRGB(130, 40, 200) or Color3.fromRGB(28, 28, 38)
+    NoclipBtn.TextColor3 = NoclipEnabled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(180, 180, 200)
 end)
 
 UnloadBtn.MouseButton1Click:Connect(function()
@@ -110,34 +109,74 @@ table.insert(Connections, RunService.RenderStepped:Connect(function()
     end
 end))
 
--- FE Invis + Hide Overhead Name
-table.insert(Connections, RunService.RenderStepped:Connect(function()
+-- FE Invis (Desync CFrame) + Hide Overhead Text
+table.insert(Connections, RunService.PostSimulation:Connect(function()
     if not Active then return end
     local myChar = LocalPlayer.Character
     if not myChar then return end
 
     local hum = myChar:FindFirstChild("Humanoid")
-    local head = myChar:FindFirstChild("Head")
+    local hrp = myChar:FindFirstChild("HumanoidRootPart")
 
     if hum then
         hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
     end
 
-    if head then
-        for _, gui in ipairs(head:GetChildren()) do
-            if gui:IsA("BillboardGui") or gui:IsA("SurfaceGui") then
-                gui:Destroy()
+    if myChar:FindFirstChild("Head") then
+        for _, v in ipairs(myChar.Head:GetChildren()) do
+            if v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
+                v:Destroy()
             end
         end
     end
 
-    if InvisEnabled then
-        for _, part in ipairs(myChar:GetDescendants()) do
-            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                part.Transparency = 1
-            elseif part:IsA("Decal") then
-                part.Transparency = 1
+    if InvisEnabled and hrp then
+        local realCF = hrp.CFrame
+        hrp.CFrame = realCF * CFrame.new(0, -9999, 0)
+        RunService.PreRender:Wait()
+        hrp.CFrame = realCF
+    end
+end))
+
+-- Noclip Loop
+table.insert(Connections, RunService.Stepped:Connect(function()
+    if not Active or not NoclipEnabled then return end
+    local myChar = LocalPlayer.Character
+    if myChar then
+        for _, p in ipairs(myChar:GetDescendants()) do
+            if p:IsA("BasePart") then
+                p.CanCollide = false
             end
+        end
+    end
+end))
+
+-- TP по нажатию X / Ч к ближайшему игроку
+table.insert(Connections, UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.X then
+        local myChar = LocalPlayer.Character
+        local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        local closestPlr = nil
+        local minDist = math.huge
+
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                local hum = plr.Character:FindFirstChild("Humanoid")
+                if hum and hum.Health > 0 then
+                    local dist = (plr.Character.HumanoidRootPart.Position - myHRP.Position).Magnitude
+                    if dist < minDist then
+                        minDist = dist
+                        closestPlr = plr
+                    end
+                end
+            end
+        end
+
+        if closestPlr and closestPlr.Character and closestPlr.Character:FindFirstChild("HumanoidRootPart") then
+            myHRP.CFrame = closestPlr.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
         end
     end
 end))

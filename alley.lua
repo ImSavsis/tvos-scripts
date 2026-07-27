@@ -6,7 +6,6 @@ local LocalPlayer = Players.LocalPlayer
 local Active = true
 local ESPEnabled = false
 local InvisEnabled = false
-local NoclipEnabled = false
 local Connections = {}
 local Highlights = {}
 
@@ -14,12 +13,12 @@ local ok = pcall(function() return game:GetService("CoreGui").Name end)
 local UIContainer = ok and game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "TVOS_Stealth"
+ScreenGui.Name = "TVOS_Clean"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = UIContainer
 
 local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 230, 0, 190)
+Main.Size = UDim2.new(0, 210, 0, 150)
 Main.Position = UDim2.new(0.05, 0, 0.2, 0)
 Main.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
 Main.BorderSizePixel = 0
@@ -34,7 +33,7 @@ MainStroke.Color = Color3.fromRGB(40, 40, 55)
 
 local function CreateBtn(text, pos, bg, textCol)
     local btn = Instance.new("TextButton", Main)
-    btn.Size = UDim2.new(0.9, 0, 0, 30)
+    btn.Size = UDim2.new(0.9, 0, 0, 32)
     btn.Position = pos
     btn.Text = text
     btn.TextColor3 = textCol or Color3.fromRGB(180, 180, 200)
@@ -46,10 +45,9 @@ local function CreateBtn(text, pos, bg, textCol)
     return btn
 end
 
-local ESPBtn = CreateBtn("ESP: OFF", UDim2.new(0.05, 0, 0.08, 0))
-local InvisBtn = CreateBtn("GHOST INVIS: OFF", UDim2.new(0.05, 0, 0.28, 0))
-local NoclipBtn = CreateBtn("NOCLIP: OFF", UDim2.new(0.05, 0, 0.48, 0))
-local UnloadBtn = CreateBtn("UNLOAD", UDim2.new(0.05, 0, 0.72, 0), Color3.fromRGB(150, 30, 40), Color3.fromRGB(255, 255, 255))
+local ESPBtn = CreateBtn("ESP: OFF", UDim2.new(0.05, 0, 0.1, 0))
+local InvisBtn = CreateBtn("FE INVIS: OFF", UDim2.new(0.05, 0, 0.38, 0))
+local UnloadBtn = CreateBtn("UNLOAD", UDim2.new(0.05, 0, 0.66, 0), Color3.fromRGB(150, 30, 40), Color3.fromRGB(255, 255, 255))
 
 ESPBtn.MouseButton1Click:Connect(function()
     ESPEnabled = not ESPEnabled
@@ -58,43 +56,44 @@ ESPBtn.MouseButton1Click:Connect(function()
     ESPBtn.TextColor3 = ESPEnabled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(180, 180, 200)
 end)
 
--- Полный FE-Инвиз через подмену серверных координат костей
-local CloneChar
+local OriginalC0 = nil
 InvisBtn.MouseButton1Click:Connect(function()
     InvisEnabled = not InvisEnabled
-    InvisBtn.Text = InvisEnabled and "GHOST INVIS: ON" or "GHOST INVIS: OFF"
+    InvisBtn.Text = InvisEnabled and "FE INVIS: ON" or "FE INVIS: OFF"
     InvisBtn.BackgroundColor3 = InvisEnabled and Color3.fromRGB(130, 40, 200) or Color3.fromRGB(28, 28, 38)
     InvisBtn.TextColor3 = InvisEnabled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(180, 180, 200)
 
     local char = LocalPlayer.Character
     if not char then return end
-
     local hrp = char:FindFirstChild("HumanoidRootPart")
     local lowerTorso = char:FindFirstChild("LowerTorso") or char:FindFirstChild("Torso")
-    
-    if InvisEnabled then
-        if hrp and lowerTorso then
-            local rootJoint = lowerTorso:FindFirstChild("RootJoint") or hrp:FindFirstChild("RootJoint")
-            if rootJoint then
-                rootJoint.Parent = nil
+    if not hrp or not lowerTorso then return end
+
+    local rootJoint = lowerTorso:FindFirstChild("RootJoint") or hrp:FindFirstChild("RootJoint")
+    if rootJoint then
+        if InvisEnabled then
+            if not OriginalC0 then OriginalC0 = rootJoint.C0 end
+            rootJoint.C0 = OriginalC0 * CFrame.new(0, -500, 0)
+        else
+            if OriginalC0 then
+                rootJoint.C0 = OriginalC0
+                OriginalC0 = nil
             end
-        end
-    else
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid.Health = 0
         end
     end
 end)
 
-NoclipBtn.MouseButton1Click:Connect(function()
-    NoclipEnabled = not NoclipEnabled
-    NoclipBtn.Text = NoclipEnabled and "NOCLIP: ON" or "NOCLIP: OFF"
-    NoclipBtn.BackgroundColor3 = NoclipEnabled and Color3.fromRGB(130, 40, 200) or Color3.fromRGB(28, 28, 38)
-    NoclipBtn.TextColor3 = NoclipEnabled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(180, 180, 200)
-end)
-
 UnloadBtn.MouseButton1Click:Connect(function()
     Active = false
+    local char = LocalPlayer.Character
+    if char then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local lowerTorso = char:FindFirstChild("LowerTorso") or char:FindFirstChild("Torso")
+        if hrp and lowerTorso and OriginalC0 then
+            local rootJoint = lowerTorso:FindFirstChild("RootJoint") or hrp:FindFirstChild("RootJoint")
+            if rootJoint then rootJoint.C0 = OriginalC0 end
+        end
+    end
     ScreenGui:Destroy()
     for _, hl in pairs(Highlights) do
         if hl then hl:Destroy() end
@@ -103,7 +102,7 @@ UnloadBtn.MouseButton1Click:Connect(function()
     for _, c in pairs(Connections) do c:Disconnect() end
 end)
 
--- ESP
+-- ESP Loop
 table.insert(Connections, RunService.RenderStepped:Connect(function()
     if not Active then return end
     for _, plr in ipairs(Players:GetPlayers()) do
@@ -130,20 +129,7 @@ table.insert(Connections, RunService.RenderStepped:Connect(function()
     end
 end))
 
--- Noclip Loop
-table.insert(Connections, RunService.Stepped:Connect(function()
-    if not Active or not NoclipEnabled then return end
-    local myChar = LocalPlayer.Character
-    if myChar then
-        for _, p in ipairs(myChar:GetDescendants()) do
-            if p:IsA("BasePart") then
-                p.CanCollide = false
-            end
-        end
-    end
-end))
-
--- TP за спину на X / Ч
+-- TP по кнопке X / Ч
 table.insert(Connections, UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.X then
